@@ -7,232 +7,140 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0f0e11;
-    --surface: #1a1820;
-    --border: #2d2a35;
-    --p1: #ff6b6b;
-    --p2: #4ecdc4;
-    --text: #e8e5f0;
-    --muted: #6b6578;
-    --accent: #f7c948;
+    --bg: #0f0e11; --surface: #1a1820; --border: #2d2a35;
+    --p1: #ff6b6b; --p2: #4ecdc4; --text: #e8e5f0;
+    --muted: #6b6578; --accent: #f7c948;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    min-height: 100vh;
-    padding: 2rem 1.5rem 4rem;
-  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; min-height: 100vh; padding: 2rem 1.5rem 4rem; }
 
-  .header { text-align: center; margin-bottom: 3rem; }
+  /* SYNC INDICATOR */
+  #sync-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+    height: 3px; background: transparent;
+    transition: background 0.3s;
+  }
+  #sync-bar.syncing { background: linear-gradient(90deg, var(--p1), var(--accent), var(--p2)); animation: syncPulse 1s ease infinite alternate; }
+  #sync-bar.error { background: var(--p1); }
+  @keyframes syncPulse { from { opacity: 0.5; } to { opacity: 1; } }
+  #sync-status {
+    position: fixed; top: 8px; right: 12px; z-index: 1001;
+    font-size: 0.6rem; letter-spacing: 0.08em; color: var(--muted);
+    font-family: 'DM Mono', monospace; transition: all 0.3s;
+  }
+  #sync-status.live { color: var(--p2); }
+  #sync-status.error { color: var(--p1); }
+
+  /* NFC TOAST */
+  #nfc-toast {
+    position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--surface); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 1rem 1.5rem; z-index: 2000;
+    font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700;
+    color: var(--accent); text-align: center; min-width: 250px;
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+  #nfc-toast.show { transform: translateX(-50%) translateY(0); }
+  #nfc-toast .toast-sub { font-family: 'DM Mono', monospace; font-size: 0.7rem; font-weight: 400; color: var(--muted); margin-top: 0.3rem; }
+
+  .header { text-align: center; margin-bottom: 3rem; padding-top: 1rem; }
   .header h1 {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: clamp(2.2rem, 5vw, 3.8rem);
-    letter-spacing: -0.02em;
-    line-height: 1;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: clamp(2.2rem, 5vw, 3.8rem); letter-spacing: -0.02em; line-height: 1;
     background: linear-gradient(135deg, var(--p1) 0%, var(--accent) 50%, var(--p2) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
   }
-  .header .sub {
-    font-size: 0.75rem;
-    color: var(--muted);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin-top: 0.5rem;
-  }
+  .header .sub { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 0.5rem; }
 
-  .legend {
-    display: flex; gap: 1rem; justify-content: center;
-    align-items: center; margin-bottom: 2.5rem; flex-wrap: wrap;
-  }
-  .player-badge {
-    display: flex; align-items: center; gap: 0.6rem;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; padding: 0.5rem 1rem;
-  }
+  .legend { display: flex; gap: 1rem; justify-content: center; align-items: center; margin-bottom: 2.5rem; flex-wrap: wrap; }
+  .player-badge { display: flex; align-items: center; gap: 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 1rem; }
   .player-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
   .player-dot.p1 { background: var(--p1); box-shadow: 0 0 8px var(--p1); }
   .player-dot.p2 { background: var(--p2); box-shadow: 0 0 8px var(--p2); }
   .player-name input {
-    background: transparent; border: none;
-    border-bottom: 1px dashed var(--border);
-    color: var(--text); font-family: 'Syne', sans-serif;
-    font-size: 0.85rem; font-weight: 600;
+    background: transparent; border: none; border-bottom: 1px dashed var(--border);
+    color: var(--text); font-family: 'Syne', sans-serif; font-size: 0.85rem; font-weight: 600;
     width: 100px; outline: none; padding: 0 2px;
   }
   .player-name input:focus { border-bottom-color: var(--accent); }
 
-  .section-label {
-    font-family: 'Syne', sans-serif; font-size: 0.7rem;
-    letter-spacing: 0.2em; text-transform: uppercase;
-    color: var(--muted); margin-bottom: 1rem; padding-left: 0.25rem;
-  }
+  .section-label { font-family: 'Syne', sans-serif; font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; padding-left: 0.25rem; }
 
-  /* CHORE GRID */
-  .chore-grid-wrapper {
-    overflow-x: auto; border-radius: 12px;
-    border: 1px solid var(--border); margin-bottom: 3rem;
-  }
+  .chore-grid-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 3rem; }
   table { width: 100%; border-collapse: collapse; min-width: 860px; }
   thead th {
-    background: var(--surface); padding: 0.6rem 0.4rem;
-    font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--muted); border-bottom: 2px solid var(--border);
-    text-align: center; font-family: 'Syne', sans-serif; font-weight: 600; white-space: nowrap;
+    background: var(--surface); padding: 0.6rem 0.4rem; font-size: 0.6rem;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    border-bottom: 2px solid var(--border); text-align: center;
+    font-family: 'Syne', sans-serif; font-weight: 600; white-space: nowrap;
   }
   thead th:first-child { text-align: left; padding-left: 1rem; min-width: 210px; }
-  .week-header {
-    background: var(--bg) !important; color: var(--accent) !important;
-    font-size: 0.65rem !important; letter-spacing: 0.15em !important;
-    padding-top: 0.9rem !important; padding-bottom: 0.4rem !important;
-    border-top: 1px solid var(--border);
-  }
+  .week-header { background: var(--bg) !important; color: var(--accent) !important; font-size: 0.65rem !important; letter-spacing: 0.15em !important; padding-top: 0.9rem !important; padding-bottom: 0.4rem !important; border-top: 1px solid var(--border); }
   .day-col-group { border-left: 1px solid var(--border); }
+  .today-col { background: rgba(247,201,72,0.04) !important; }
+  .today-col-header { color: var(--accent) !important; }
   tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
   tbody tr:hover { background: rgba(255,255,255,0.02); }
   tbody tr:last-child { border-bottom: none; }
 
-  .chore-name {
-    padding: 0.4rem 0.5rem 0.4rem 0.75rem;
-    font-size: 0.72rem; color: var(--text);
-    border-right: 2px solid var(--border); white-space: nowrap;
-  }
+  .chore-name { padding: 0.4rem 0.5rem 0.4rem 0.75rem; font-size: 0.72rem; color: var(--text); border-right: 2px solid var(--border); white-space: nowrap; }
   .chore-name-inner { display: flex; align-items: center; gap: 0.4rem; }
   .chore-name input[type="text"] {
-    background: transparent; border: none;
-    border-bottom: 1px dashed transparent;
-    color: var(--text); font-family: 'DM Mono', monospace;
-    font-size: 0.72rem; width: 170px; outline: none;
-    padding: 1px 2px; transition: border-color 0.15s;
+    background: transparent; border: none; border-bottom: 1px dashed transparent;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    width: 170px; outline: none; padding: 1px 2px; transition: border-color 0.15s;
     cursor: default; pointer-events: none;
   }
-  .grid-edit-mode .chore-name input[type="text"] {
-    border-bottom-color: var(--border);
-    cursor: text; pointer-events: all;
-  }
+  .grid-edit-mode .chore-name input[type="text"] { border-bottom-color: var(--border); cursor: text; pointer-events: all; }
   .grid-edit-mode .chore-name input[type="text"]:focus { border-bottom-color: var(--accent); }
 
-  .btn-del-chore {
-    background: none; border: none; color: var(--muted);
-    cursor: pointer; font-size: 0.75rem; line-height: 1;
-    padding: 2px 4px; border-radius: 3px;
-    transition: all 0.15s; display: none; flex-shrink: 0;
-  }
+  .btn-del-chore { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.75rem; line-height: 1; padding: 2px 4px; border-radius: 3px; transition: all 0.15s; display: none; flex-shrink: 0; }
   .grid-edit-mode .btn-del-chore { display: inline-block; }
   .btn-del-chore:hover { color: var(--p1); background: rgba(255,107,107,0.1); }
 
   .add-chore-row td { padding: 0.4rem 0.75rem; display: none; }
   .grid-edit-mode .add-chore-row td { display: table-cell; }
-  .btn-add-chore {
-    background: none; border: 1px dashed var(--border);
-    color: var(--muted); font-family: 'DM Mono', monospace;
-    font-size: 0.65rem; letter-spacing: 0.08em;
-    padding: 0.3rem 0.75rem; border-radius: 5px;
-    cursor: pointer; transition: all 0.15s;
-  }
+  .btn-add-chore { background: none; border: 1px dashed var(--border); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em; padding: 0.3rem 0.75rem; border-radius: 5px; cursor: pointer; transition: all 0.15s; }
   .btn-add-chore:hover { border-color: var(--p2); color: var(--p2); }
 
   .day-cell-group { border-left: 1px solid var(--border); padding: 0; }
   .cell-pair { display: flex; gap: 2px; padding: 4px; justify-content: center; }
-  .dot {
-    width: 22px; height: 22px; border-radius: 50%;
-    border: 1.5px solid var(--border); background: transparent;
-    cursor: pointer; transition: all 0.18s ease; flex-shrink: 0;
-  }
+  .dot { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border); background: transparent; cursor: pointer; transition: all 0.18s ease; flex-shrink: 0; }
   .dot:hover { border-color: var(--muted); transform: scale(1.1); }
   .dot.filled-p1 { background: var(--p1); border-color: var(--p1); box-shadow: 0 0 6px var(--p1); }
   .dot.filled-p2 { background: var(--p2); border-color: var(--p2); box-shadow: 0 0 6px var(--p2); }
+  .dot.nfc-flash { animation: nfcPop 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes nfcPop { 0% { transform: scale(0.3); } 60% { transform: scale(1.4); } 100% { transform: scale(1); } }
 
-  /* EDIT TOGGLE */
   .edit-toggle-bar { display: flex; justify-content: flex-end; margin-bottom: 0.5rem; }
-  .btn-edit-toggle {
-    background: none; border: 1px solid var(--border); color: var(--muted);
-    font-family: 'DM Mono', monospace; font-size: 0.62rem;
-    letter-spacing: 0.1em; text-transform: uppercase;
-    padding: 0.3rem 0.8rem; border-radius: 5px;
-    cursor: pointer; transition: all 0.15s;
-  }
+  .btn-edit-toggle { background: none; border: 1px solid var(--border); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3rem 0.8rem; border-radius: 5px; cursor: pointer; transition: all 0.15s; }
   .btn-edit-toggle:hover, .btn-edit-toggle.active { border-color: var(--accent); color: var(--accent); }
 
   /* RULES */
   .rules-section { max-width: 700px; margin: 0 auto 3rem; }
-  .rules-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 1.5rem;
-    position: relative; overflow: hidden;
-  }
-  .rules-card::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, var(--p1), var(--accent), var(--p2));
-  }
-  .rules-card h2 {
-    font-family: 'Syne', sans-serif; font-size: 1.1rem;
-    font-weight: 700; margin-bottom: 1rem; color: var(--accent);
-  }
-  .rule-item {
-    display: flex; gap: 0.5rem; align-items: flex-start;
-    padding: 0.45rem 0; border-bottom: 1px solid var(--border);
-    font-size: 0.75rem; line-height: 1.5; color: #b8b4c8;
-  }
+  .rules-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; position: relative; overflow: hidden; }
+  .rules-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--p1), var(--accent), var(--p2)); }
+  .rules-card h2 { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--accent); }
+  .rule-item { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.45rem 0; border-bottom: 1px solid var(--border); font-size: 0.75rem; line-height: 1.5; color: #b8b4c8; }
   .rule-item:last-child { border-bottom: none; }
-  .rule-emoji-input {
-    background: transparent; border: none; font-size: 0.95rem;
-    width: 28px; outline: none; flex-shrink: 0;
-    cursor: default; padding: 0; font-family: inherit;
-    pointer-events: none;
-  }
+  .rule-emoji-input { background: transparent; border: none; font-size: 0.95rem; width: 28px; outline: none; flex-shrink: 0; cursor: default; padding: 0; font-family: inherit; pointer-events: none; }
   .rules-edit-active .rule-emoji-input { cursor: text; pointer-events: all; }
-  .rule-text-input {
-    background: transparent; border: none;
-    border-bottom: 1px dashed transparent; color: #b8b4c8;
-    font-family: 'DM Mono', monospace; font-size: 0.75rem;
-    line-height: 1.5; width: 100%; outline: none; resize: none;
-    transition: border-color 0.15s; padding: 1px 2px;
-    overflow: hidden; cursor: default; pointer-events: none;
-  }
-  .rules-edit-active .rule-text-input {
-    border-bottom-color: var(--border);
-    cursor: text; pointer-events: all;
-  }
+  .rule-text-input { background: transparent; border: none; border-bottom: 1px dashed transparent; color: #b8b4c8; font-family: 'DM Mono', monospace; font-size: 0.75rem; line-height: 1.5; width: 100%; outline: none; resize: none; transition: border-color 0.15s; padding: 1px 2px; overflow: hidden; cursor: default; pointer-events: none; }
+  .rules-edit-active .rule-text-input { border-bottom-color: var(--border); cursor: text; pointer-events: all; }
   .rules-edit-active .rule-text-input:focus { border-bottom-color: var(--accent); color: var(--text); }
-  .btn-del-rule {
-    background: none; border: none; color: var(--muted);
-    cursor: pointer; font-size: 0.75rem; padding: 2px 4px;
-    border-radius: 3px; flex-shrink: 0; transition: all 0.15s;
-    display: none; margin-top: 2px;
-  }
+  .btn-del-rule { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.75rem; padding: 2px 4px; border-radius: 3px; flex-shrink: 0; transition: all 0.15s; display: none; margin-top: 2px; }
   .rules-edit-active .btn-del-rule { display: inline-block; }
   .btn-del-rule:hover { color: var(--p1); background: rgba(255,107,107,0.1); }
-  .add-rule-btn {
-    background: none; border: 1px dashed var(--border);
-    color: var(--muted); font-family: 'DM Mono', monospace;
-    font-size: 0.65rem; letter-spacing: 0.08em;
-    padding: 0.35rem 0.9rem; border-radius: 5px;
-    cursor: pointer; margin-top: 1rem; transition: all 0.15s;
-    display: none; width: 100%;
-  }
+  .add-rule-btn { background: none; border: 1px dashed var(--border); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em; padding: 0.35rem 0.9rem; border-radius: 5px; cursor: pointer; margin-top: 1rem; transition: all 0.15s; display: none; width: 100%; }
   .rules-edit-active .add-rule-btn { display: block; }
   .add-rule-btn:hover { border-color: var(--p2); color: var(--p2); }
 
   /* STRIKES */
   .strikes-section { max-width: 700px; margin: 0 auto; }
-  .strikes-card {
-    background: var(--surface); border: 1px solid #3d1e1e;
-    border-radius: 12px; padding: 1.5rem;
-    position: relative; overflow: hidden;
-  }
-  .strikes-card::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, #ff3333, #ff6b6b, #ff9999);
-  }
-  .strikes-card h2 {
-    font-family: 'Syne', sans-serif; font-size: 1.1rem;
-    font-weight: 700; margin-bottom: 0.5rem; color: #ff6b6b;
-  }
+  .strikes-card { background: var(--surface); border: 1px solid #3d1e1e; border-radius: 12px; padding: 1.5rem; position: relative; overflow: hidden; }
+  .strikes-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, #ff3333, #ff6b6b, #ff9999); }
+  .strikes-card h2 { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: #ff6b6b; }
   .strikes-tagline { font-size: 0.7rem; color: var(--muted); margin-bottom: 1.5rem; letter-spacing: 0.08em; }
   .strikes-grid { display: flex; gap: 2rem; flex-wrap: wrap; }
   .player-strikes { flex: 1; min-width: 200px; }
@@ -240,122 +148,70 @@
   .player-strikes-name.p1 { color: var(--p1); }
   .player-strikes-name.p2 { color: var(--p2); }
   .strike-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-  .strike-mark {
-    font-size: 1.4rem; cursor: pointer;
-    transition: all 0.15s; user-select: none; opacity: 0.2; line-height: 1;
-  }
+  .strike-mark { font-size: 1.4rem; cursor: pointer; transition: all 0.15s; user-select: none; opacity: 0.2; line-height: 1; }
   .strike-mark.active { opacity: 1; filter: drop-shadow(0 0 4px rgba(255,60,60,0.7)); }
   .strike-mark:hover { transform: scale(1.2); }
 
-  .reset-btn {
-    display: block; margin: 2rem auto 0; background: transparent;
-    border: 1px solid var(--border); color: var(--muted);
-    font-family: 'DM Mono', monospace; font-size: 0.65rem;
-    letter-spacing: 0.1em; text-transform: uppercase;
-    padding: 0.5rem 1.2rem; border-radius: 6px;
-    cursor: pointer; transition: all 0.15s;
-  }
+  /* NFC URLS PANEL */
+  .nfc-section { max-width: 700px; margin: 2rem auto; }
+  .nfc-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; position: relative; overflow: hidden; }
+  .nfc-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--p2), #a8edea); }
+  .nfc-card h2 { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--p2); }
+  .nfc-card .nfc-sub { font-size: 0.7rem; color: var(--muted); margin-bottom: 1.2rem; }
+  .nfc-toggle { cursor: pointer; text-decoration: underline; color: var(--p2); }
+  #nfc-urls-list { display: none; }
+  #nfc-urls-list.open { display: block; }
+  .nfc-url-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.68rem; }
+  .nfc-url-item:last-child { border-bottom: none; }
+  .nfc-chore-label { color: var(--text); min-width: 160px; flex-shrink: 0; }
+  .nfc-url-text { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .nfc-copy-btn { background: none; border: 1px solid var(--border); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.6rem; padding: 2px 8px; border-radius: 4px; cursor: pointer; flex-shrink: 0; transition: all 0.15s; }
+  .nfc-copy-btn:hover { border-color: var(--p2); color: var(--p2); }
+  .nfc-person-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .nfc-tab { background: none; border: 1px solid var(--border); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em; padding: 0.3rem 0.8rem; border-radius: 5px; cursor: pointer; transition: all 0.15s; }
+  .nfc-tab.active.p1 { border-color: var(--p1); color: var(--p1); }
+  .nfc-tab.active.p2 { border-color: var(--p2); color: var(--p2); }
+
+  .reset-btn { display: block; margin: 2rem auto 0; background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.5rem 1.2rem; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
   .reset-btn:hover { border-color: var(--p1); color: var(--p1); }
 
-  /* ═══════════ PADDLIN OVERLAY ═══════════ */
-  #paddlin-overlay {
-    position: fixed; inset: 0; z-index: 9999;
-    display: flex; align-items: center; justify-content: center;
-    flex-direction: column; gap: 1rem;
-    pointer-events: none; opacity: 0;
-    transition: opacity 0.15s;
-  }
+  /* PADDLIN */
+  #paddlin-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1rem; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
   #paddlin-overlay.active { pointer-events: all; opacity: 1; }
   #paddlin-overlay.dismissing { opacity: 0; pointer-events: none; }
-
-  #paddlin-bg {
-    position: absolute; inset: 0;
-    background: radial-gradient(ellipse at center, rgba(180,10,10,0.92) 0%, rgba(0,0,0,0.98) 75%);
-  }
-  #paddlin-bg-flash {
-    position: absolute; inset: 0;
-    background: white;
-    animation: flashIn 0.5s ease-out forwards;
-  }
-  @keyframes flashIn {
-    0%   { opacity: 0.9; }
-    100% { opacity: 0; }
-  }
-
+  #paddlin-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(180,10,10,0.92) 0%, rgba(0,0,0,0.98) 75%); }
+  #paddlin-bg-flash { position: absolute; inset: 0; background: white; animation: flashIn 0.5s ease-out forwards; }
+  @keyframes flashIn { 0% { opacity: 0.9; } 100% { opacity: 0; } }
   .paddlin-sparks { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
-  .spark {
-    position: absolute; border-radius: 50%;
-    animation: sparkFly var(--dur) ease-out var(--delay) forwards;
-    opacity: 0;
-  }
-  @keyframes sparkFly {
-    0%   { opacity: 1; transform: translate(0,0) scale(1); }
-    100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.1); }
-  }
-
-  #paddlin-paddle {
-    position: relative; z-index: 2;
-    font-size: clamp(4rem, 12vw, 8rem);
-    animation: paddleWhack 0.25s ease-in-out 3;
-    transform-origin: bottom center;
-  }
-  @keyframes paddleWhack {
-    0%   { transform: rotate(-40deg) translateY(-20px); }
-    40%  { transform: rotate(20deg) translateY(10px); }
-    60%  { transform: rotate(10deg) translateY(5px); }
-    100% { transform: rotate(-40deg) translateY(-20px); }
-  }
-
-  #paddlin-text {
-    position: relative; z-index: 2;
-    font-family: 'Syne', sans-serif; font-weight: 800;
-    font-size: clamp(2.2rem, 7vw, 4.5rem);
-    color: #fff; text-align: center; line-height: 1.1;
-    text-shadow: 0 0 20px #ff0000, 0 0 50px #ff4400;
-    animation: textPop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
-    transform: scale(0);
-  }
-  @keyframes textPop {
-    to { transform: scale(1); }
-  }
-
-  #paddlin-sub {
-    position: relative; z-index: 2;
-    font-family: 'DM Mono', monospace; font-size: 0.8rem;
-    color: rgba(255,200,200,0.7); letter-spacing: 0.1em;
-    animation: fadeUp 0.5s ease 0.3s both;
-  }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Screen shake */
-  @keyframes screenShake {
-    0%,100% { transform: translate(0,0) rotate(0deg); }
-    10%  { transform: translate(-6px, -4px) rotate(-1deg); }
-    20%  { transform: translate(6px, 4px) rotate(1deg); }
-    30%  { transform: translate(-4px, 6px) rotate(0deg); }
-    40%  { transform: translate(4px, -6px) rotate(1deg); }
-    50%  { transform: translate(-6px, 4px) rotate(-1deg); }
-    60%  { transform: translate(6px, -4px) rotate(0deg); }
-    70%  { transform: translate(-4px, -6px) rotate(1deg); }
-    80%  { transform: translate(4px, 4px) rotate(-1deg); }
-    90%  { transform: translate(-2px, 2px) rotate(0.5deg); }
-  }
+  .spark { position: absolute; border-radius: 50%; animation: sparkFly var(--dur) ease-out var(--delay) forwards; opacity: 0; }
+  @keyframes sparkFly { 0% { opacity: 1; transform: translate(0,0) scale(1); } 100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.1); } }
+  #paddlin-paddle { position: relative; z-index: 2; font-size: clamp(4rem, 12vw, 8rem); animation: paddleWhack 0.25s ease-in-out 3; transform-origin: bottom center; }
+  @keyframes paddleWhack { 0% { transform: rotate(-40deg) translateY(-20px); } 40% { transform: rotate(20deg) translateY(10px); } 60% { transform: rotate(10deg) translateY(5px); } 100% { transform: rotate(-40deg) translateY(-20px); } }
+  #paddlin-text { position: relative; z-index: 2; font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(2.2rem, 7vw, 4.5rem); color: #fff; text-align: center; line-height: 1.1; text-shadow: 0 0 20px #ff0000, 0 0 50px #ff4400; animation: textPop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; transform: scale(0); }
+  @keyframes textPop { to { transform: scale(1); } }
+  #paddlin-sub { position: relative; z-index: 2; font-family: 'DM Mono', monospace; font-size: 0.8rem; color: rgba(255,200,200,0.7); letter-spacing: 0.1em; animation: fadeUp 0.5s ease 0.3s both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes screenShake { 0%,100% { transform: translate(0,0); } 20% { transform: translate(-6px,-4px); } 40% { transform: translate(6px,4px); } 60% { transform: translate(-4px,6px); } 80% { transform: translate(4px,-6px); } }
   body.shaking { animation: screenShake 0.5s ease; }
 </style>
 </head>
 <body>
 
-<!-- PADDLIN OVERLAY -->
+<div id="sync-bar"></div>
+<div id="sync-status">connecting…</div>
+
 <div id="paddlin-overlay">
   <div id="paddlin-bg"></div>
   <div id="paddlin-bg-flash" style="display:none"></div>
   <div class="paddlin-sparks" id="sparks-container"></div>
   <div id="paddlin-paddle">🏏</div>
-  <div id="paddlin-text">THAT'S A<br>PADDLIN'!</div>
+  <div id="paddlin-text">THAT'S A PADDLIN'!</div>
   <div id="paddlin-sub">tap anywhere to dismiss</div>
+</div>
+
+<div id="nfc-toast">
+  <div id="nfc-toast-main">✓ Chore logged!</div>
+  <div class="toast-sub" id="nfc-toast-sub"></div>
 </div>
 
 <div class="header">
@@ -415,11 +271,53 @@
       </div>
     </div>
   </div>
-  <button class="reset-btn" onclick="resetAll()">↺ Reset everything</button>
 </div>
 
-<script>
-// ── DEFAULTS ──────────────────────────────────────────────────
+<!-- NFC URL GENERATOR -->
+<div class="nfc-section">
+  <div class="section-label">— NFC tag urls</div>
+  <div class="nfc-card">
+    <h2>📡 NFC Tag URLs</h2>
+    <div class="nfc-sub">
+      Copy these URLs into your NFC tags using the <strong>NFC Tools</strong> app.
+      Each tag is linked to a specific chore + person.
+      <span class="nfc-toggle" onclick="toggleNfcList()">Show URLs ▾</span>
+    </div>
+    <div id="nfc-urls-list">
+      <div class="nfc-person-tabs">
+        <button class="nfc-tab active p1" id="nfc-tab-1" onclick="switchNfcTab(1)">Person 1</button>
+        <button class="nfc-tab p2" id="nfc-tab-2" onclick="switchNfcTab(2)">Person 2</button>
+      </div>
+      <div id="nfc-url-rows"></div>
+    </div>
+  </div>
+</div>
+
+<button class="reset-btn" onclick="resetAll()">↺ Reset chore marks &amp; strikes</button>
+
+<script type="module">
+// ═══════════════════════════════════════════════════
+// FIREBASE CONFIG
+// ═══════════════════════════════════════════════════
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAWXZPbigO9-LN8-yKvwsumDC_gmK-UUAY",
+  authDomain: "chores-9497f.firebaseapp.com",
+  projectId: "chores-9497f",
+  storageBucket: "chores-9497f.firebasestorage.app",
+  messagingSenderId: "838718255471",
+  appId: "1:838718255471:web:2ab074c7714c3d9320389a"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const DOC = doc(db, 'roster', 'shared');
+
+// ═══════════════════════════════════════════════════
+// DEFAULTS
+// ═══════════════════════════════════════════════════
 const DEFAULT_CHORES = [
   "Unload dishwasher","Load dishwasher","Empty cat litter","Make dinner",
   "Load washing","Unload washing","Fold washing","Vacuum house",
@@ -440,60 +338,200 @@ const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const DAY_COLS = [];
 for (let w=0;w<2;w++) for (let d=0;d<7;d++) DAY_COLS.push({week:w,day:d,label:DAYS[d]});
 
-// ── STATE ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
 let chores = [...DEFAULT_CHORES];
 let rules  = DEFAULT_RULES.map(r=>({...r}));
 let dotState = [];
+let names = ['Person 1', 'Person 2'];
+let strikes = [0, 0];
+let prevStrikes = [0, 0];
 let choreEditMode = false;
 let rulesEditMode = false;
-let prevStrikes = [0,0];
+let nfcPerson = 1;
+let isRemoteUpdate = false; // prevent save loop
 
 function makeDotState(n) {
   return Array.from({length:n}, ()=>Array.from({length:DAY_COLS.length}, ()=>[0,0]));
 }
 
-// ── STORAGE ───────────────────────────────────────────────────
-function saveAll() {
-  try {
-    localStorage.setItem('roster_v3', JSON.stringify({
-      chores, rules, dotState,
-      names:[document.getElementById('name1').value, document.getElementById('name2').value],
-      strikes: getStrikeCounts()
-    }));
-  } catch(e){}
-}
-function loadSaved() {
-  try {
-    const raw = localStorage.getItem('roster_v3');
-    if (!raw) return;
-    const d = JSON.parse(raw);
-    if (d.chores && Array.isArray(d.chores)) chores = d.chores;
-    if (d.rules  && Array.isArray(d.rules))  rules  = d.rules;
-    if (d.dotState && d.dotState.length === chores.length) dotState = d.dotState;
-    else dotState = makeDotState(chores.length);
-    if (d.names) {
-      document.getElementById('name1').value = d.names[0]||'Person 1';
-      document.getElementById('name2').value = d.names[1]||'Person 2';
-    }
-    if (d.strikes) { applyStrikes(d.strikes); prevStrikes = [...d.strikes]; }
-  } catch(e){}
+// ═══════════════════════════════════════════════════
+// SYNC STATUS UI
+// ═══════════════════════════════════════════════════
+function setSyncStatus(state) {
+  const bar = document.getElementById('sync-bar');
+  const txt = document.getElementById('sync-status');
+  bar.className = state === 'syncing' ? 'syncing' : state === 'error' ? 'error' : '';
+  if (state === 'live')    { txt.textContent = '● live'; txt.className = 'live'; }
+  else if (state === 'syncing') { txt.textContent = '↑ saving…'; txt.className = ''; }
+  else if (state === 'error')   { txt.textContent = '✕ offline'; txt.className = 'error'; }
 }
 
-// ── TABLE ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+// FIRESTORE SAVE / LOAD
+// ═══════════════════════════════════════════════════
+let saveTimer = null;
+function scheduleSave() {
+  if (isRemoteUpdate) return;
+  clearTimeout(saveTimer);
+  setSyncStatus('syncing');
+  saveTimer = setTimeout(()=>pushToFirestore(), 800);
+}
+
+async function pushToFirestore() {
+  try {
+    await setDoc(DOC, {
+      chores, rules, dotState, names,
+      strikes, updatedAt: Date.now()
+    });
+    setSyncStatus('live');
+  } catch(e) {
+    setSyncStatus('error');
+    console.error('Firestore save error', e);
+  }
+}
+
+// Real-time listener — updates UI when other phone changes data
+function startListener() {
+  onSnapshot(DOC, (snap) => {
+    if (!snap.exists()) { setSyncStatus('live'); return; }
+    const d = snap.data();
+    isRemoteUpdate = true;
+
+    if (d.chores) chores = d.chores;
+    if (d.rules)  rules  = d.rules;
+    if (d.dotState && d.dotState.length === chores.length) dotState = d.dotState;
+    else dotState = makeDotState(chores.length);
+    if (d.names)   names   = d.names;
+    if (d.strikes) strikes = d.strikes;
+
+    // Update name inputs without triggering save
+    document.getElementById('name1').value = names[0] || 'Person 1';
+    document.getElementById('name2').value = names[1] || 'Person 2';
+    updateStrikeNames();
+
+    buildBody();
+    buildRules();
+    applyStrikesUI(strikes);
+    prevStrikes = [...strikes];
+    buildNfcUrls();
+
+    setSyncStatus('live');
+    isRemoteUpdate = false;
+  }, (err) => {
+    setSyncStatus('error');
+    console.error('Firestore listener error', err);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// NFC — handle URL params on page load
+// ═══════════════════════════════════════════════════
+function handleNfcTap() {
+  const params = new URLSearchParams(window.location.search);
+  const choreIdx = params.get('chore');
+  const person   = params.get('person');
+  if (choreIdx === null || person === null) return;
+
+  const ci = parseInt(choreIdx);
+  const p  = parseInt(person); // 1 or 2
+
+  if (isNaN(ci) || isNaN(p) || ci < 0 || ci >= chores.length) return;
+
+  // Work out today's column
+  const todayCol = getTodayCol();
+  if (todayCol === -1) {
+    showNfcToast('Outside the 2-week window!', 'Reset the roster to start a new period.');
+    return;
+  }
+
+  // Find first empty slot in today's column for this chore, or overwrite slot matching this person
+  const pair = dotState[ci][todayCol];
+  let slotIdx = -1;
+  // If either slot already belongs to this person, toggle it off
+  for (let s=0;s<2;s++) { if (pair[s] === p) { slotIdx = s; break; } }
+  if (slotIdx !== -1) {
+    // Already marked — untick it
+    dotState[ci][todayCol][slotIdx] = 0;
+    showNfcToast('Chore unmarked', chores[ci] || `Chore ${ci+1}`);
+  } else {
+    // Find empty slot
+    slotIdx = pair.indexOf(0);
+    if (slotIdx === -1) slotIdx = 0; // overwrite first if both full
+    dotState[ci][todayCol][slotIdx] = p;
+    const pname = names[p-1] || `Person ${p}`;
+    showNfcToast(`✓ ${pname} — done!`, chores[ci] || `Chore ${ci+1}`);
+  }
+
+  // Flash the dot
+  scheduleSave();
+
+  // Remove query params from URL without reload
+  window.history.replaceState({}, '', window.location.pathname);
+
+  // Rebuild table and flash the dot
+  buildBody();
+  setTimeout(()=>{
+    const dots = document.querySelectorAll(`.dot[data-r="${ci}"][data-c="${todayCol}"]`);
+    dots.forEach(d=>{ d.classList.add('nfc-flash'); setTimeout(()=>d.classList.remove('nfc-flash'),600); });
+  }, 50);
+}
+
+function getTodayCol() {
+  // Returns which column index represents today.
+  // We store a "start date" in Firestore. If not set, today is col 0.
+  // For simplicity we use the roster start date saved in Firestore.
+  // We'll use a startDate stored with the roster.
+  const start = window._rosterStart;
+  if (!start) return 0; // fallback
+  const now = new Date();
+  const startDate = new Date(start);
+  startDate.setHours(0,0,0,0); now.setHours(0,0,0,0);
+  const diff = Math.round((now - startDate) / 86400000);
+  if (diff < 0 || diff >= 14) return -1;
+  // Convert diff (0-13) to DAY_COLS index: week*7 + dayOfWeek(Mon=0)
+  // But we just use diff directly as column index
+  return diff;
+}
+
+function showNfcToast(main, sub) {
+  document.getElementById('nfc-toast-main').textContent = main;
+  document.getElementById('nfc-toast-sub').textContent = sub;
+  const toast = document.getElementById('nfc-toast');
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'), 3000);
+}
+
+// ═══════════════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════════════
+function getTodayHighlight() {
+  const start = window._rosterStart;
+  if (!start) return -1;
+  const now = new Date(); now.setHours(0,0,0,0);
+  const s = new Date(start); s.setHours(0,0,0,0);
+  const diff = Math.round((now - s) / 86400000);
+  return (diff >= 0 && diff < 14) ? diff : -1;
+}
+
 function buildHeader() {
+  const todayIdx = getTodayHighlight();
   let r1='<tr><th></th>';
   r1+=`<th class="week-header day-col-group" colspan="7">— Week 1</th>`;
   r1+=`<th class="week-header day-col-group" colspan="7">— Week 2</th>`;
   r1+='</tr>';
   let r2='<tr><th>Chore</th>';
-  DAY_COLS.forEach(dc=>{
-    r2+=`<th class="${dc.day===0?'day-col-group':''}">${dc.label}</th>`;
+  DAY_COLS.forEach((dc,i)=>{
+    const todayCls = i===todayIdx ? ' today-col-header' : '';
+    r2+=`<th class="${dc.day===0?'day-col-group':''}${todayCls}">${dc.label}${i===todayIdx?' ◀':''}</th>`;
   });
   r2+='</tr>';
   document.getElementById('table-head').innerHTML=r1+r2;
 }
 
 function buildBody() {
+  const todayIdx = getTodayHighlight();
   const tbody = document.getElementById('table-body');
   let html='';
   chores.forEach((name,r)=>{
@@ -504,7 +542,8 @@ function buildBody() {
       </div></td>`;
     DAY_COLS.forEach((dc,c)=>{
       const s0=(dotState[r]?.[c]?.[0])||0, s1=(dotState[r]?.[c]?.[1])||0;
-      html+=`<td class="day-cell-group${dc.day===0?' day-col-group':''}">
+      const todayCls = c===todayIdx ? ' today-col' : '';
+      html+=`<td class="day-cell-group${dc.day===0?' day-col-group':''}${todayCls}">
         <div class="cell-pair">
           <div class="dot ${dc2(s0)}" data-r="${r}" data-c="${c}" data-s="0"></div>
           <div class="dot ${dc2(s1)}" data-r="${r}" data-c="${c}" data-s="1"></div>
@@ -521,19 +560,21 @@ function buildBody() {
       const r=+this.dataset.r,c=+this.dataset.c,s=+this.dataset.s;
       dotState[r][c][s]=(dotState[r][c][s]+1)%3;
       this.className='dot '+dc2(dotState[r][c][s]);
-      saveAll();
+      scheduleSave();
     });
   });
   tbody.querySelectorAll('input[data-row]').forEach(inp=>{
     inp.addEventListener('input',function(){
-      chores[+this.dataset.row]=this.value; saveAll();
+      chores[+this.dataset.row]=this.value;
+      buildNfcUrls();
+      scheduleSave();
     });
   });
   tbody.querySelectorAll('.btn-del-chore').forEach(btn=>{
     btn.addEventListener('click',function(){
       const r=+this.dataset.row;
       chores.splice(r,1); dotState.splice(r,1);
-      buildBody(); saveAll();
+      buildBody(); buildNfcUrls(); scheduleSave();
     });
   });
   document.getElementById('btn-add-chore').addEventListener('click', addChore);
@@ -544,10 +585,9 @@ function dc2(v){ return v===1?'filled-p1':v===2?'filled-p2':''; }
 function addChore(){
   chores.push('');
   dotState.push(Array.from({length:DAY_COLS.length},()=>[0,0]));
-  buildBody();
+  buildBody(); buildNfcUrls(); scheduleSave();
   const inputs=document.querySelectorAll('#table-body input[data-row]');
   if(inputs.length) inputs[inputs.length-1].focus();
-  saveAll();
 }
 
 function toggleChoreEdit(){
@@ -561,7 +601,9 @@ function applyChoreEditMode(){
   document.getElementById('chore-grid-container').classList.toggle('grid-edit-mode',choreEditMode);
 }
 
-// ── RULES ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+// RULES
+// ═══════════════════════════════════════════════════
 function buildRules(){
   const list=document.getElementById('rules-list');
   list.innerHTML='';
@@ -575,21 +617,18 @@ function buildRules(){
     list.appendChild(div);
     const ta=div.querySelector('textarea');
     autoResize(ta);
-    ta.addEventListener('input',function(){ rules[+this.dataset.ri].text=this.value; autoResize(this); saveAll(); });
-    div.querySelector('.rule-emoji-input').addEventListener('input',function(){ rules[+this.dataset.ri].emoji=this.value; saveAll(); });
-    div.querySelector('.btn-del-rule').addEventListener('click',function(){
-      rules.splice(+this.dataset.ri,1); buildRules(); saveAll();
-    });
+    ta.addEventListener('input',function(){ rules[+this.dataset.ri].text=this.value; autoResize(this); scheduleSave(); });
+    div.querySelector('.rule-emoji-input').addEventListener('input',function(){ rules[+this.dataset.ri].emoji=this.value; scheduleSave(); });
+    div.querySelector('.btn-del-rule').addEventListener('click',function(){ rules.splice(+this.dataset.ri,1); buildRules(); scheduleSave(); });
   });
   applyRulesEditMode();
 }
 function autoResize(ta){ ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; }
 function addRule(){
   rules.push({emoji:'✏️',text:'New rule — describe it here.'});
-  buildRules();
+  buildRules(); scheduleSave();
   const tas=document.querySelectorAll('.rule-text-input');
   if(tas.length){ tas[tas.length-1].focus(); tas[tas.length-1].select(); }
-  saveAll();
 }
 function toggleRulesEdit(){
   rulesEditMode=!rulesEditMode;
@@ -602,7 +641,9 @@ function applyRulesEditMode(){
   document.getElementById('rules-card').classList.toggle('rules-edit-active',rulesEditMode);
 }
 
-// ── STRIKES ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+// STRIKES
+// ═══════════════════════════════════════════════════
 function buildStrikes(){
   for(let p=1;p<=2;p++){
     const row=document.getElementById(`strike-row-${p}`);
@@ -620,26 +661,18 @@ function buildStrikes(){
         } else {
           all.forEach((m2,idx)=>m2.classList.toggle('active',idx<=ii));
         }
-        const newCount=Array.from(document.querySelectorAll(`#strike-row-${pp} .strike-mark`))
-          .filter(x=>x.classList.contains('active')).length;
-        if(newCount>=3 && prevStrikes[pp-1]<3){
-          const nm=document.getElementById(`name${pp}`).value||`Person ${pp}`;
-          triggerPaddlin(nm);
+        strikes[pp-1]=Array.from(document.querySelectorAll(`#strike-row-${pp} .strike-mark`)).filter(x=>x.classList.contains('active')).length;
+        if(strikes[pp-1]>=3 && prevStrikes[pp-1]<3){
+          triggerPaddlin(names[pp-1]||`Person ${pp}`);
         }
-        prevStrikes[pp-1]=newCount;
-        saveAll();
+        prevStrikes[pp-1]=strikes[pp-1];
+        scheduleSave();
       });
       row.appendChild(m);
     }
   }
 }
-function getStrikeCounts(){
-  return [1,2].map(p=>
-    Array.from(document.querySelectorAll(`#strike-row-${p} .strike-mark`))
-      .filter(x=>x.classList.contains('active')).length
-  );
-}
-function applyStrikes(counts){
+function applyStrikesUI(counts){
   counts.forEach((count,idx)=>{
     const p=idx+1;
     document.querySelectorAll(`#strike-row-${p} .strike-mark`)
@@ -647,150 +680,156 @@ function applyStrikes(counts){
   });
 }
 
-// ── PADDLIN ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+// NFC URL GENERATOR
+// ═══════════════════════════════════════════════════
+function toggleNfcList(){
+  const list=document.getElementById('nfc-urls-list');
+  const tog=document.querySelector('.nfc-toggle');
+  list.classList.toggle('open');
+  tog.textContent=list.classList.contains('open')?'Hide URLs ▴':'Show URLs ▾';
+  if(list.classList.contains('open')) buildNfcUrls();
+}
+function switchNfcTab(p){
+  nfcPerson=p;
+  document.getElementById('nfc-tab-1').className='nfc-tab'+(p===1?' active p1':'');
+  document.getElementById('nfc-tab-2').className='nfc-tab'+(p===2?' active p2':'');
+  buildNfcUrls();
+}
+function buildNfcUrls(){
+  const base = window.location.origin + window.location.pathname;
+  const rows = document.getElementById('nfc-url-rows');
+  if(!rows) return;
+  rows.innerHTML='';
+  chores.forEach((name,i)=>{
+    if(!name) return;
+    const url=`${base}?chore=${i}&person=${nfcPerson}`;
+    const div=document.createElement('div');
+    div.className='nfc-url-item';
+    div.innerHTML=`
+      <span class="nfc-chore-label">${esc(name)}</span>
+      <span class="nfc-url-text">${esc(url)}</span>
+      <button class="nfc-copy-btn">Copy</button>`;
+    div.querySelector('.nfc-copy-btn').addEventListener('click',()=>{
+      navigator.clipboard.writeText(url).then(()=>{
+        div.querySelector('.nfc-copy-btn').textContent='✓';
+        setTimeout(()=>div.querySelector('.nfc-copy-btn').textContent='Copy',1500);
+      });
+    });
+    rows.appendChild(div);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// PADDLIN
+// ═══════════════════════════════════════════════════
 function triggerPaddlin(name){
   const overlay=document.getElementById('paddlin-overlay');
   document.getElementById('paddlin-text').innerHTML=`${name.toUpperCase()},<br>THAT'S A<br>PADDLIN'!`;
-
-  // Flash + shake
   const flash=document.getElementById('paddlin-bg-flash');
-  flash.style.display='block';
-  void flash.offsetWidth;
-  flash.style.animation='none';
-  void flash.offsetWidth;
+  flash.style.display='block'; void flash.offsetWidth;
+  flash.style.animation='none'; void flash.offsetWidth;
   flash.style.animation='flashIn 0.5s ease-out forwards';
-  document.body.classList.remove('shaking');
-  void document.body.offsetWidth;
+  document.body.classList.remove('shaking'); void document.body.offsetWidth;
   document.body.classList.add('shaking');
   setTimeout(()=>document.body.classList.remove('shaking'),600);
-
-  // Sparks
   const sparks=document.getElementById('sparks-container');
   sparks.innerHTML='';
   for(let i=0;i<70;i++){
-    const s=document.createElement('div');
-    s.className='spark';
-    const angle=Math.random()*360;
-    const dist=60+Math.random()*280;
-    const tx=Math.cos(angle*Math.PI/180)*dist;
-    const ty=Math.sin(angle*Math.PI/180)*dist;
+    const s=document.createElement('div'); s.className='spark';
+    const angle=Math.random()*360, dist=60+Math.random()*280;
+    const tx=Math.cos(angle*Math.PI/180)*dist, ty=Math.sin(angle*Math.PI/180)*dist;
     const size=3+Math.random()*8;
     const hue=Math.random()>0.5?`hsl(${Math.random()*40},100%,${55+Math.random()*20}%)`:'#fff';
-    s.style.cssText=`left:${45+Math.random()*10}%;top:${35+Math.random()*15}%;
-      width:${size}px;height:${size}px;background:${hue};
-      --tx:${tx}px;--ty:${ty}px;
-      --dur:${0.5+Math.random()*0.5}s;
-      --delay:${Math.random()*0.15}s;`;
+    s.style.cssText=`left:${45+Math.random()*10}%;top:${35+Math.random()*15}%;width:${size}px;height:${size}px;background:${hue};--tx:${tx}px;--ty:${ty}px;--dur:${0.5+Math.random()*0.5}s;--delay:${Math.random()*0.15}s;`;
     sparks.appendChild(s);
   }
-
-  // Reset paddle & text animations
   const paddle=document.getElementById('paddlin-paddle');
-  paddle.style.animation='none'; void paddle.offsetWidth;
-  paddle.style.animation='paddleWhack 0.25s ease-in-out 3';
+  paddle.style.animation='none'; void paddle.offsetWidth; paddle.style.animation='paddleWhack 0.25s ease-in-out 3';
   const txt=document.getElementById('paddlin-text');
-  txt.style.animation='none'; void txt.offsetWidth;
-  txt.style.animation='textPop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards';
-
-  overlay.classList.remove('dismissing');
-  overlay.classList.add('active');
-
+  txt.style.animation='none'; void txt.offsetWidth; txt.style.animation='textPop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards';
+  overlay.classList.remove('dismissing'); overlay.classList.add('active');
   playPaddlinSound();
-
-  const dismiss=()=>{
-    overlay.classList.add('dismissing');
-    setTimeout(()=>{ overlay.classList.remove('active','dismissing'); },350);
-    overlay.removeEventListener('click',dismiss);
-  };
+  const dismiss=()=>{ overlay.classList.add('dismissing'); setTimeout(()=>overlay.classList.remove('active','dismissing'),350); overlay.removeEventListener('click',dismiss); };
   setTimeout(()=>overlay.addEventListener('click',dismiss),400);
-  setTimeout(()=>{ if(overlay.classList.contains('active')) dismiss(); }, 3500);
+  setTimeout(()=>{ if(overlay.classList.contains('active')) dismiss(); },3500);
 }
-
 function playPaddlinSound(){
-  try {
-    const ctx=new(window.AudioContext||window.webkitAudioContext)();
-    const t=ctx.currentTime;
-
-    // Whoosh up
-    const wBuf=ctx.createBuffer(1,ctx.sampleRate*0.28,ctx.sampleRate);
-    const wData=wBuf.getChannelData(0);
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)(); const t=ctx.currentTime;
+    const wBuf=ctx.createBuffer(1,ctx.sampleRate*0.28,ctx.sampleRate); const wData=wBuf.getChannelData(0);
     for(let i=0;i<wData.length;i++) wData[i]=(Math.random()*2-1)*(1-i/wData.length)*0.8;
     const wSrc=ctx.createBufferSource(); wSrc.buffer=wBuf;
-    const wFilt=ctx.createBiquadFilter(); wFilt.type='bandpass';
-    wFilt.frequency.setValueAtTime(600,t);
-    wFilt.frequency.linearRampToValueAtTime(2200,t+0.2);
-    wFilt.frequency.linearRampToValueAtTime(300,t+0.28);
-    wFilt.Q.value=1.2;
-    const wGain=ctx.createGain();
-    wGain.gain.setValueAtTime(0.5,t);
-    wGain.gain.linearRampToValueAtTime(0,t+0.28);
-    wSrc.connect(wFilt); wFilt.connect(wGain); wGain.connect(ctx.destination);
-    wSrc.start(t);
-
-    // THWACK
-    const osc=ctx.createOscillator();
-    osc.type='sine';
-    osc.frequency.setValueAtTime(200,t+0.26);
-    osc.frequency.exponentialRampToValueAtTime(35,t+0.7);
-    const tGain=ctx.createGain();
-    tGain.gain.setValueAtTime(0,t+0.25);
-    tGain.gain.linearRampToValueAtTime(1.2,t+0.27);
-    tGain.gain.exponentialRampToValueAtTime(0.001,t+0.8);
-    osc.connect(tGain); tGain.connect(ctx.destination);
-    osc.start(t+0.25); osc.stop(t+0.8);
-
-    // Crack noise
-    const cBuf=ctx.createBuffer(1,ctx.sampleRate*0.06,ctx.sampleRate);
-    const cData=cBuf.getChannelData(0);
+    const wFilt=ctx.createBiquadFilter(); wFilt.type='bandpass'; wFilt.frequency.setValueAtTime(600,t); wFilt.frequency.linearRampToValueAtTime(2200,t+0.2); wFilt.frequency.linearRampToValueAtTime(300,t+0.28); wFilt.Q.value=1.2;
+    const wGain=ctx.createGain(); wGain.gain.setValueAtTime(0.5,t); wGain.gain.linearRampToValueAtTime(0,t+0.28);
+    wSrc.connect(wFilt); wFilt.connect(wGain); wGain.connect(ctx.destination); wSrc.start(t);
+    const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.setValueAtTime(200,t+0.26); osc.frequency.exponentialRampToValueAtTime(35,t+0.7);
+    const tGain=ctx.createGain(); tGain.gain.setValueAtTime(0,t+0.25); tGain.gain.linearRampToValueAtTime(1.2,t+0.27); tGain.gain.exponentialRampToValueAtTime(0.001,t+0.8);
+    osc.connect(tGain); tGain.connect(ctx.destination); osc.start(t+0.25); osc.stop(t+0.8);
+    const cBuf=ctx.createBuffer(1,ctx.sampleRate*0.06,ctx.sampleRate); const cData=cBuf.getChannelData(0);
     for(let i=0;i<cData.length;i++) cData[i]=(Math.random()*2-1)*Math.exp(-i/(cData.length*0.15));
     const cSrc=ctx.createBufferSource(); cSrc.buffer=cBuf;
     const cFilt=ctx.createBiquadFilter(); cFilt.type='highpass'; cFilt.frequency.value=2000;
     const cGain=ctx.createGain(); cGain.gain.value=2.0;
-    cSrc.connect(cFilt); cFilt.connect(cGain); cGain.connect(ctx.destination);
-    cSrc.start(t+0.26);
-
-    // "OW!" slide
-    const ow=ctx.createOscillator(); ow.type='triangle';
-    ow.frequency.setValueAtTime(420,t+0.35);
-    ow.frequency.linearRampToValueAtTime(180,t+0.6);
-    const owFilt=ctx.createBiquadFilter(); owFilt.type='lowpass'; owFilt.frequency.value=1000;
-    const owGain=ctx.createGain();
-    owGain.gain.setValueAtTime(0.5,t+0.34);
-    owGain.gain.linearRampToValueAtTime(0.001,t+0.65);
-    ow.connect(owFilt); owFilt.connect(owGain); owGain.connect(ctx.destination);
-    ow.start(t+0.34); ow.stop(t+0.65);
-
-  } catch(e){}
+    cSrc.connect(cFilt); cFilt.connect(cGain); cGain.connect(ctx.destination); cSrc.start(t+0.26);
+  }catch(e){}
 }
 
-// ── RESET ─────────────────────────────────────────────────────
-function resetAll(){
-  if(!confirm('Reset all chore marks and strikes? (Names, chore list and rules will be kept)')) return;
+// ═══════════════════════════════════════════════════
+// RESET
+// ═══════════════════════════════════════════════════
+window.resetAll = function(){
+  if(!confirm('Reset all chore marks and strikes? Chore names and rules will be kept.')) return;
   dotState=makeDotState(chores.length);
-  buildBody();
+  strikes=[0,0]; prevStrikes=[0,0];
+  // Set roster start date to today
+  window._rosterStart = new Date().toISOString();
+  buildHeader(); buildBody();
   document.querySelectorAll('.strike-mark').forEach(m=>m.classList.remove('active'));
-  prevStrikes=[0,0];
-  saveAll();
-}
+  scheduleSave();
+};
 
-// ── UTILS ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function updateStrikeNames(){
-  document.getElementById('strikes-name1').textContent=document.getElementById('name1').value||'Person 1';
-  document.getElementById('strikes-name2').textContent=document.getElementById('name2').value||'Person 2';
+  document.getElementById('strikes-name1').textContent=names[0]||'Person 1';
+  document.getElementById('strikes-name2').textContent=names[1]||'Person 2';
 }
 
-// ── INIT ──────────────────────────────────────────────────────
-dotState=makeDotState(chores.length);
+// ═══════════════════════════════════════════════════
+// EXPOSE GLOBALS FOR onclick= handlers
+// ═══════════════════════════════════════════════════
+window.toggleChoreEdit = toggleChoreEdit;
+window.toggleRulesEdit = toggleRulesEdit;
+window.addRule = addRule;
+window.toggleNfcList = toggleNfcList;
+window.switchNfcTab = switchNfcTab;
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+dotState = makeDotState(chores.length);
 buildHeader();
 buildStrikes();
-loadSaved();
 buildBody();
 buildRules();
 updateStrikeNames();
 
-document.getElementById('name1').addEventListener('input',()=>{ updateStrikeNames(); saveAll(); });
-document.getElementById('name2').addEventListener('input',()=>{ updateStrikeNames(); saveAll(); });
+// Start Firebase listener — this will load data and keep in sync
+startListener();
+
+// After a moment, handle NFC tap (needs data loaded first)
+setTimeout(handleNfcTap, 1500);
+
+// Name inputs
+document.getElementById('name1').addEventListener('input',function(){
+  names[0]=this.value; updateStrikeNames(); scheduleSave();
+});
+document.getElementById('name2').addEventListener('input',function(){
+  names[1]=this.value; updateStrikeNames(); scheduleSave();
+});
 </script>
 </body>
 </html>
