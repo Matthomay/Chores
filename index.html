@@ -396,7 +396,15 @@ async function pushToFirestore() {
 // Real-time listener — updates UI when other phone changes data
 function startListener() {
   onSnapshot(DOC, (snap) => {
-    if (!snap.exists()) { setSyncStatus('live'); return; }
+    if (!snap.exists()) {
+      // First time ever — auto-start the roster from today
+      if (!window._rosterStart) {
+        window._rosterStart = new Date().toISOString();
+        pushToFirestore();
+      }
+      setSyncStatus('live');
+      return;
+    }
     const d = snap.data();
     isRemoteUpdate = true;
 
@@ -406,7 +414,13 @@ function startListener() {
     else dotState = makeDotState(chores.length);
     if (d.names)   names   = d.names;
     if (d.strikes) strikes = d.strikes;
-    if (d.rosterStart) window._rosterStart = d.rosterStart;
+    if (d.rosterStart) {
+      window._rosterStart = d.rosterStart;
+    } else {
+      // No start date saved yet — set it to today and save
+      window._rosterStart = new Date().toISOString();
+      setTimeout(pushToFirestore, 500);
+    }
 
     // Update name inputs without triggering save
     document.getElementById('name1').value = names[0] || 'Person 1';
@@ -443,9 +457,21 @@ function handleNfcTap() {
   if (isNaN(ci) || isNaN(p) || ci < 0 || ci >= chores.length) return;
 
   // Work out today's column
+  // Auto-start roster if no start date set yet
+  if (!window._rosterStart) {
+    window._rosterStart = new Date().toISOString();
+    pushToFirestore();
+  }
+
   const todayCol = getTodayCol();
   if (todayCol === -1) {
-    showNfcToast('Outside the 2-week window!', 'Reset the roster to start a new period.');
+    // Outside 14-day window — auto-reset to today
+    window._rosterStart = new Date().toISOString();
+    dotState = makeDotState(chores.length);
+    strikes = [0, 0];
+    pushToFirestore();
+    showNfcToast('🔄 New roster started!', 'Previous period was over 2 weeks');
+    buildHeader(); buildBody();
     return;
   }
 
