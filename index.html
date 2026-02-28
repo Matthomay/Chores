@@ -392,8 +392,10 @@ async function pushToFirestore() {
     });
     setSyncStatus('live');
   } catch(e) {
-    setSyncStatus('error');
-    console.error('Firestore save error', e);
+    console.error('Firestore save error:', e.code, e.message);
+    document.getElementById('sync-status').textContent = '✕ save: ' + (e.code || e.message);
+    document.getElementById('sync-status').className = 'error';
+    document.getElementById('sync-bar').className = 'error';
   } finally {
     // Keep isSaving true for a moment so listener ignores the echo
     setTimeout(() => { isSaving = false; }, 3000);
