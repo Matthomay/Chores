@@ -381,13 +381,40 @@ function scheduleSave() {
   saveTimer = setTimeout(()=>pushToFirestore(), 800);
 }
 
+// Firestore doesn't support nested arrays, so flatten dotState to a plain object
+// dotState[chore][day][slot] => { "c0_d0": [0,0], "c0_d1": [1,0], ... }
+function flattenDotState(ds) {
+  // Firestore doesn't support nested arrays — store each slot as its own key
+  const flat = {};
+  ds.forEach((row, r) => {
+    row.forEach((pair, c) => {
+      flat[`c${r}_d${c}_s0`] = pair[0] || 0;
+      flat[`c${r}_d${c}_s1`] = pair[1] || 0;
+    });
+  });
+  return flat;
+}
+function unflattenDotState(flat, numChores) {
+  const ds = makeDotState(numChores);
+  Object.keys(flat).forEach(key => {
+    const match = key.match(/^c(\d+)_d(\d+)_s(\d+)$/);
+    if (!match) return;
+    const r = +match[1], c = +match[2], s = +match[3];
+    if (ds[r] && ds[r][c] && s < 2) {
+      ds[r][c][s] = flat[key] || 0;
+    }
+  });
+  return ds;
+}
+
 async function pushToFirestore() {
   try {
     isSaving = true;
     lastSaveTime = Date.now();
     await setDoc(DOC, {
-      chores, rules, dotState, names,
-      strikes, rosterStart: window._rosterStart || null,
+      chores, rules, names, strikes,
+      dotState: flattenDotState(dotState),
+      rosterStart: window._rosterStart || null,
       updatedAt: lastSaveTime
     });
     setSyncStatus('live');
@@ -397,7 +424,6 @@ async function pushToFirestore() {
     document.getElementById('sync-status').className = 'error';
     document.getElementById('sync-bar').className = 'error';
   } finally {
-    // Keep isSaving true for a moment so listener ignores the echo
     setTimeout(() => { isSaving = false; }, 3000);
   }
 }
@@ -422,8 +448,11 @@ function startListener() {
 
     if (d.chores) chores = d.chores;
     if (d.rules)  rules  = d.rules;
-    if (d.dotState && d.dotState.length === chores.length) dotState = d.dotState;
-    else dotState = makeDotState(chores.length);
+    if (d.dotState && typeof d.dotState === 'object' && !Array.isArray(d.dotState)) {
+      dotState = unflattenDotState(d.dotState, chores.length);
+    } else {
+      dotState = makeDotState(chores.length);
+    }
     if (d.names)   names   = d.names;
     if (d.strikes) strikes = d.strikes;
     if (d.rosterStart) {
