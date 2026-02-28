@@ -383,7 +383,8 @@ async function pushToFirestore() {
   try {
     await setDoc(DOC, {
       chores, rules, dotState, names,
-      strikes, updatedAt: Date.now()
+      strikes, rosterStart: window._rosterStart || null,
+      updatedAt: Date.now()
     });
     setSyncStatus('live');
   } catch(e) {
@@ -405,12 +406,14 @@ function startListener() {
     else dotState = makeDotState(chores.length);
     if (d.names)   names   = d.names;
     if (d.strikes) strikes = d.strikes;
+    if (d.rosterStart) window._rosterStart = d.rosterStart;
 
     // Update name inputs without triggering save
     document.getElementById('name1').value = names[0] || 'Person 1';
     document.getElementById('name2').value = names[1] || 'Person 2';
     updateStrikeNames();
 
+    buildHeader();
     buildBody();
     buildRules();
     applyStrikesUI(strikes);
@@ -446,22 +449,33 @@ function handleNfcTap() {
     return;
   }
 
-  // Find first empty slot in today's column for this chore, or overwrite slot matching this person
+  // Slot logic:
+  // - Tap 1: fill first empty slot with this person's colour
+  // - Tap 2: fill second empty slot (so both people can mark the same chore in a day)
+  // - If both slots belong to this person: clear the last one (undo)
+  // - If both slots are full (both different people): do nothing / show message
   const pair = dotState[ci][todayCol];
-  let slotIdx = -1;
-  // If either slot already belongs to this person, toggle it off
-  for (let s=0;s<2;s++) { if (pair[s] === p) { slotIdx = s; break; } }
-  if (slotIdx !== -1) {
-    // Already marked — untick it
-    dotState[ci][todayCol][slotIdx] = 0;
-    showNfcToast('Chore unmarked', chores[ci] || `Chore ${ci+1}`);
+  const pname = names[p-1] || `Person ${p}`;
+  const choreName = chores[ci] || `Chore ${ci+1}`;
+
+  // Count how many slots this person already has
+  const mySlots = pair.map((v,i)=>({v,i})).filter(x=>x.v===p);
+
+  if (mySlots.length === 2) {
+    // Both slots are mine — undo the most recent (slot 1 first, then 0)
+    dotState[ci][todayCol][mySlots[1].i] = 0;
+    showNfcToast('↩ Undone', choreName);
   } else {
-    // Find empty slot
-    slotIdx = pair.indexOf(0);
-    if (slotIdx === -1) slotIdx = 0; // overwrite first if both full
-    dotState[ci][todayCol][slotIdx] = p;
-    const pname = names[p-1] || `Person ${p}`;
-    showNfcToast(`✓ ${pname} — done!`, chores[ci] || `Chore ${ci+1}`);
+    // Find first empty slot
+    const emptySlot = pair.indexOf(0);
+    if (emptySlot === -1) {
+      // Both slots taken by other person — can't add
+      showNfcToast('Both slots taken today!', choreName);
+      return;
+    }
+    dotState[ci][todayCol][emptySlot] = p;
+    const slotNum = emptySlot === 0 ? '1st' : '2nd';
+    showNfcToast(`✓ ${pname} — done! (${slotNum} time)`, choreName);
   }
 
   // Flash the dot
@@ -479,19 +493,15 @@ function handleNfcTap() {
 }
 
 function getTodayCol() {
-  // Returns which column index represents today.
-  // We store a "start date" in Firestore. If not set, today is col 0.
-  // For simplicity we use the roster start date saved in Firestore.
-  // We'll use a startDate stored with the roster.
+  // Column index = whole days since roster start (0=day1 ... 13=day14)
+  // Uses local date strings to avoid timezone offset bugs
   const start = window._rosterStart;
-  if (!start) return 0; // fallback
+  if (!start) return -1;
   const now = new Date();
   const startDate = new Date(start);
-  startDate.setHours(0,0,0,0); now.setHours(0,0,0,0);
-  const diff = Math.round((now - startDate) / 86400000);
+  const toMidnight = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = Math.round((toMidnight(now) - toMidnight(startDate)) / 86400000);
   if (diff < 0 || diff >= 14) return -1;
-  // Convert diff (0-13) to DAY_COLS index: week*7 + dayOfWeek(Mon=0)
-  // But we just use diff directly as column index
   return diff;
 }
 
@@ -507,12 +517,8 @@ function showNfcToast(main, sub) {
 // TABLE
 // ═══════════════════════════════════════════════════
 function getTodayHighlight() {
-  const start = window._rosterStart;
-  if (!start) return -1;
-  const now = new Date(); now.setHours(0,0,0,0);
-  const s = new Date(start); s.setHours(0,0,0,0);
-  const diff = Math.round((now - s) / 86400000);
-  return (diff >= 0 && diff < 14) ? diff : -1;
+  // Same logic as getTodayCol — reuse it
+  return getTodayCol();
 }
 
 function buildHeader() {
@@ -574,7 +580,8 @@ function buildBody() {
     btn.addEventListener('click',function(){
       const r=+this.dataset.row;
       chores.splice(r,1); dotState.splice(r,1);
-      buildBody(); buildNfcUrls(); scheduleSave();
+      buildHeader();
+    buildBody(); buildNfcUrls(); scheduleSave();
     });
   });
   document.getElementById('btn-add-chore').addEventListener('click', addChore);
