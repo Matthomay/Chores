@@ -352,6 +352,7 @@ let rulesEditMode = false;
 let nfcPerson = 1;
 let isRemoteUpdate = false; // prevent save loop
 let isSaving = false;
+let lastSaveTime = 0; // timestamp of our last save, ignore snapshots within 3s of it
 
 function makeDotState(n) {
   return Array.from({length:n}, ()=>Array.from({length:DAY_COLS.length}, ()=>[0,0]));
@@ -383,17 +384,19 @@ function scheduleSave() {
 async function pushToFirestore() {
   try {
     isSaving = true;
+    lastSaveTime = Date.now();
     await setDoc(DOC, {
       chores, rules, dotState, names,
       strikes, rosterStart: window._rosterStart || null,
-      updatedAt: Date.now()
+      updatedAt: lastSaveTime
     });
     setSyncStatus('live');
   } catch(e) {
     setSyncStatus('error');
     console.error('Firestore save error', e);
   } finally {
-    isSaving = false;
+    // Keep isSaving true for a moment so listener ignores the echo
+    setTimeout(() => { isSaving = false; }, 3000);
   }
 }
 
