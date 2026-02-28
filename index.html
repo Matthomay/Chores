@@ -351,6 +351,7 @@ let choreEditMode = false;
 let rulesEditMode = false;
 let nfcPerson = 1;
 let isRemoteUpdate = false; // prevent save loop
+let isSaving = false;
 
 function makeDotState(n) {
   return Array.from({length:n}, ()=>Array.from({length:DAY_COLS.length}, ()=>[0,0]));
@@ -381,6 +382,7 @@ function scheduleSave() {
 
 async function pushToFirestore() {
   try {
+    isSaving = true;
     await setDoc(DOC, {
       chores, rules, dotState, names,
       strikes, rosterStart: window._rosterStart || null,
@@ -390,12 +392,17 @@ async function pushToFirestore() {
   } catch(e) {
     setSyncStatus('error');
     console.error('Firestore save error', e);
+  } finally {
+    isSaving = false;
   }
 }
 
 // Real-time listener — updates UI when other phone changes data
 function startListener() {
   onSnapshot(DOC, (snap) => {
+    // If we triggered this snapshot ourselves by saving, ignore it
+    if (isSaving) { setSyncStatus('live'); return; }
+
     if (!snap.exists()) {
       // First time ever — auto-start the roster from today
       if (!window._rosterStart) {
