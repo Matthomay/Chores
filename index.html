@@ -448,7 +448,9 @@ function startListener() {
     isRemoteUpdate = false;
   }, (err) => {
     setSyncStatus('error');
-    console.error('Firestore listener error', err);
+    console.error('Firestore listener error:', err.code, err.message);
+    // Show error details on screen for debugging
+    document.getElementById('sync-status').textContent = '✕ ' + (err.code || err.message);
   });
 }
 
